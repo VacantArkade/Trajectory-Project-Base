@@ -38,7 +38,7 @@ public class ProjectileTurret : MonoBehaviour
     void Fire()
     {
         GameObject projectile = Instantiate(projectilePrefab, barrelEnd.position, gun.transform.rotation);
-        projectile.GetComponent<Rigidbody>().velocity = projectileSpeed * barrelEnd.transform.forward;
+        projectile.GetComponent<Rigidbody>().linearVelocity = projectileSpeed * barrelEnd.transform.forward;
     }
 
     void TrackMouse()
