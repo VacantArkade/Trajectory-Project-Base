@@ -14,6 +14,9 @@ public class LaserTurret : MonoBehaviour
 
     List<Vector3> laserPoints = new List<Vector3>();
 
+    [SerializeField] int maxBounces = 1;
+    [SerializeField] float maxDistance = 1000f;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -38,6 +41,67 @@ public class LaserTurret : MonoBehaviour
         for(int i = 0; i < line.positionCount; i++)
         {
             line.SetPosition(i, laserPoints[i]);
+        }
+    }
+
+    void LateUpdate()
+    {
+        if (line == null || barrelEnd == null)
+            return;
+
+        List<Vector3> points = new List<Vector3>();
+        Vector3 origin = barrelEnd.position;
+        Vector3 dir = barrelEnd.forward.normalized;
+        float remaining = maxDistance;
+
+        points.Add(origin);
+
+        int bounces = 0;
+        while (remaining > 0f && bounces <= maxBounces)
+        {
+            if (Physics.Raycast(origin, dir, out RaycastHit hit, remaining, targetLayer))
+            {
+                points.Add(hit.point);
+
+                if (bounces == maxBounces)
+                    break;
+
+                float dot = dir.x * hit.normal.x + dir.y * hit.normal.y + dir.z * hit.normal.z;
+                Vector3 reflect = new Vector3(
+                    dir.x - 2f * dot * hit.normal.x,
+                    dir.y - 2f * dot * hit.normal.y,
+                    dir.z - 2f * dot * hit.normal.z
+                );
+
+                float mag = Mathf.Sqrt(reflect.x * reflect.x + reflect.y * reflect.y + reflect.z * reflect.z);
+                if (mag > 1e-6f)
+                {
+                    reflect.x /= mag;
+                    reflect.y /= mag;
+                    reflect.z /= mag;
+                }
+                else
+                {
+                    break;
+                }
+
+                float used = Vector3.Distance(points[points.Count - 1], origin);
+                remaining -= used;
+                origin = hit.point + reflect;
+                dir = reflect;
+                bounces++;
+            }
+            else
+            {
+                points.Add(origin + dir * remaining);
+                break;
+            }
+        }
+
+        line.positionCount = points.Count;
+        for (int i = 0; i < points.Count; i++)
+        {
+            line.SetPosition(i, points[i]);
         }
     }
 

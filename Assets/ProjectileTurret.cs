@@ -18,10 +18,30 @@ public class ProjectileTurret : MonoBehaviour
 
     List<Vector3> points = new List<Vector3>();
 
+    [SerializeField] float integrateStep = 0.02f;
+    [SerializeField] float integrateMaxTime = 5f;
+    [SerializeField] float integrateSphereRadius = 0.05f;
+
+    bool projectGravity = false;
+    Vector3 prefabGravity = Vector3.zero;
+
     // Start is called before the first frame update
     void Start()
     {
         
+    }
+
+    void Awake()
+    {
+        if (projectilePrefab != null)
+        {
+            var rb = projectilePrefab.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                projectGravity = rb.useGravity;
+                prefabGravity = Physics.gravity;
+            }
+        }
     }
 
     // Update is called once per frame
@@ -30,6 +50,8 @@ public class ProjectileTurret : MonoBehaviour
         TrackMouse();
         TurnBase();
         RotateGun();
+
+        DrawTrajectory();
 
         if (Input.GetButtonDown("Fire1"))
             Fire();
@@ -98,5 +120,60 @@ public class ProjectileTurret : MonoBehaviour
         }
         else
             return null;
+    }
+
+    
+
+    void DrawTrajectory()
+    {
+        if (line == null || barrelEnd == null)
+            return;
+
+        points.Clear();
+
+        Vector3 startPos = barrelEnd.position;
+        Vector3 startVel = barrelEnd.forward * projectileSpeed;
+        Vector3 usedGravity = projectGravity ? Physics.gravity : gravity;
+
+        float elapsed = 0f;
+        Vector3 pos = startPos;
+        Vector3 vel = startVel;
+        Vector3 prev = pos;
+
+        points.Add(pos);
+
+        while (elapsed < integrateMaxTime)
+        {
+            float dt = Mathf.Min(integrateStep, integrateMaxTime - elapsed);
+
+            vel += usedGravity * dt;
+            pos += vel * dt;
+
+            points.Add(pos);
+
+            Vector3 segment = pos - prev;
+            float segLen = segment.magnitude;
+            if (segLen > 1e-6f)
+            {
+                if (Physics.SphereCast(prev, integrateSphereRadius, segment.normalized, out RaycastHit hit, segLen, targetLayer))
+                {
+                    points[points.Count - 1] = hit.point;
+                    break;
+                }
+            }
+
+            prev = pos;
+            elapsed += dt;
+        }
+
+        if (points.Count == 0)
+        {
+            line.positionCount = 0;
+            return;
+        }
+
+        line.positionCount = points.Count;
+        for (int i = 0; i < points.Count; i++)
+            line.SetPosition(i, points[i]);
     }
 }
